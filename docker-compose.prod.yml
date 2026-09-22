@@ -1,0 +1,228 @@
+networks:
+  smart_medicament_prod:
+    driver: bridge
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: sm-mysql-prod
+    restart: always
+    env_file: .env
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-smart_medicament}
+    # Pas de port expose a l'hote : accessible uniquement entre conteneurs du reseau compose.
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./db/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      - smart_medicament_prod
+
+  redis:
+    image: redis:7-alpine
+    container_name: sm-redis-prod
+    restart: always
+    # Pas de port expose a l'hote non plus : usage interne uniquement.
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - smart_medicament_prod
+
+  agent-monitoring:
+    build:
+      context: ./agents/monitoring
+    image: smart-medicament-agent-monitoring:prod
+    container_name: sm-agent-monitoring-prod
+    restart: always
+    env_file: .env
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      DB_NAME: ${MYSQL_DATABASE:-smart_medicament}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - smart_medicament_prod
+
+  agent-prediction:
+    build:
+      context: ./agents/prediction
+    image: smart-medicament-agent-prediction:prod
+    container_name: sm-agent-prediction-prod
+    restart: always
+    env_file: .env
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      DB_NAME: ${MYSQL_DATABASE:-smart_medicament}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      HORIZON_JOURS: "14"
+      SEUIL_FAIBLE: "0.4"
+      SEUIL_MOYEN: "0.6"
+      SEUIL_ELEVE: "0.85"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - smart_medicament_prod
+
+  agent-decision:
+    build:
+      context: ./agents/decision
+    image: smart-medicament-agent-decision:prod
+    container_name: sm-agent-decision-prod
+    restart: always
+    env_file: .env
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      DB_NAME: ${MYSQL_DATABASE:-smart_medicament}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - smart_medicament_prod
+
+  gateway:
+    build:
+      context: ./gateway
+    image: smart-medicament-gateway:prod
+    container_name: sm-gateway-prod
+    restart: always
+    env_file: .env
+    environment:
+      PORT: 4000
+      NODE_ENV: production
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      DB_NAME: ${MYSQL_DATABASE:-smart_medicament}
+      REDIS_URL: redis://redis:6379
+      AGENT_MONITORING_URL: http://agent-monitoring:8001
+      AGENT_PREDICTION_URL: http://agent-prediction:8002
+      AGENT_DECISION_URL: http://agent-decision:8003
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
+      JWT_REFRESH_EXPIRES_IN_DAYS: ${JWT_REFRESH_EXPIRES_IN_DAYS:-7}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    # Seul point d'entree API expose : port publie a l'hote (utile derriere un
+    # reverse proxy/TLS externe). MySQL et Redis, eux, restent internes au reseau.
+    ports:
+      - "4000:4000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      agent-monitoring:
+        condition: service_healthy
+      agent-prediction:
+        condition: service_healthy
+      agent-decision:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4000/api/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - smart_medicament_prod
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: /api
+    image: smart-medicament-frontend:prod
+    container_name: sm-frontend-prod
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - gateway
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:80"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - smart_medicament_prod
+
+  # Service optionnel de sauvegarde MySQL quotidienne (rotation sur
+  # BACKUP_RETENTION_DAYS jours). Les dumps sont ecrits dans le volume
+  # "mysql_backups", monte sur l'hote via docker volume inspect si besoin
+  # de les recuperer, ou directement en bind-mount (voir README).
+  backup:
+    build:
+      context: ./db/backup
+    image: smart-medicament-backup:prod
+    container_name: sm-backup-prod
+    restart: always
+    env_file: .env
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      DB_NAME: ${MYSQL_DATABASE:-smart_medicament}
+      BACKUP_DIR: /backups
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+    volumes:
+      - mysql_backups:/backups
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - smart_medicament_prod
+
+volumes:
+  mysql_data:
+  mysql_backups:

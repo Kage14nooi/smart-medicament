@@ -1,0 +1,16 @@
+{
+  "name": "smart-medicament-seed",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Scripts de peuplement de la base pour le depot de medicaments",
+  "type": "commonjs",
+  "scripts": {
+    "seed:base": "node seed_base.js",
+    "seed:mouvements": "node seed_mouvements.js",
+    "seed:all": "node seed_base.js && node seed_mouvements.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "mysql2": "^3.11.0"
+  }
+}
