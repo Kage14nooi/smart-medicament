@@ -13,6 +13,7 @@ import UtilisateursPage from './modules/utilisateurs/UtilisateursPage.jsx';
 import MouvementsPage from './modules/mouvements/MouvementsPage.jsx';
 import AlertesPage from './modules/alertes/AlertesPage.jsx';
 import PrevisionsPage from './modules/previsions/PrevisionsPage.jsx';
+import DemandeAccesPage from './modules/auth/DemandeAccesPage.jsx';
 
 export default function App() {
   return (
@@ -35,6 +36,10 @@ export default function App() {
         <Route path="/mouvements" element={<MouvementsPage />} />
         <Route path="/alertes" element={<AlertesPage />} />
         <Route path="/previsions" element={<PrevisionsPage />} />
+        <Route
+          path="/demande-acces"
+          element={<DemandeAccesPage />}
+        />
       </Route>
     </Routes>
   );

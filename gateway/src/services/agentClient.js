@@ -81,4 +81,32 @@ module.exports = {
   archiverUtilisateur: (id) => putJson(AGENT_DECISION_URL, `/utilisateurs/${id}/archiver`, {}),
   reactiverUtilisateur: (id) => putJson(AGENT_DECISION_URL, `/utilisateurs/${id}/reactiver`, {}),
   resetMotDePasse: (id, payload) => putJson(AGENT_DECISION_URL, `/utilisateurs/${id}/reset-mot-de-passe`, payload),
+  // Gestion des demandes d'accès
+
+creerDemandeAcces: (payload) =>
+  postJson(
+    AGENT_DECISION_URL,
+    '/utilisateurs/demandes-acces',
+    payload
+  ),
+
+listerDemandesAcces: () =>
+  getJson(
+    AGENT_DECISION_URL,
+    '/utilisateurs/demandes-acces'
+  ),
+
+approuverDemandeAcces: (id, payload) =>
+  postJson(
+    AGENT_DECISION_URL,
+    `/utilisateurs/demandes-acces/${id}/approuver`,
+    payload
+  ),
+
+refuserDemandeAcces: (id) =>
+  postJson(
+    AGENT_DECISION_URL,
+    `/utilisateurs/demandes-acces/${id}/refuser`,
+    {}
+  )
 };

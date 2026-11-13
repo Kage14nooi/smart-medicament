@@ -9,6 +9,24 @@ const router = express.Router();
 const SUPERVISEUR_SEUL = autoriser('SUPERVISEUR');
 
 // Proxy vers l'agent Decision.
+// Les demandes d'accès sont visibles et traitées uniquement par le superviseur.
+router.get('/demandes-acces', SUPERVISEUR_SEUL, async (req, res) => {
+  try { res.json(await agentClient.listerDemandesAcces()); }
+  catch (err) { res.status(err.status || 500).json({ error: err.message }); }
+});
+
+router.post('/demandes-acces/:id/approuver', SUPERVISEUR_SEUL, async (req, res) => {
+  try { res.json(await agentClient.approuverDemandeAcces(req.params.id, req.body)); }
+  catch (err) { res.status(err.status || 500).json({ error: err.message }); }
+});
+
+router.post('/demandes-acces/:id/refuser', SUPERVISEUR_SEUL, async (req, res) => {
+  try { res.json(await agentClient.refuserDemandeAcces(req.params.id)); }
+  catch (err) { res.status(err.status || 500).json({ error: err.message }); }
+});
+
+
+// Proxy vers l'agent Decision.
 router.get('/', SUPERVISEUR_SEUL, async (req, res) => {
   try {
     res.json(await agentClient.listerUtilisateurs());

@@ -1,7 +1,13 @@
 import { useState } from 'react';
-import { useLocation, useNavigate, Navigate } from 'react-router-dom';
+// import { useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, AlertCircle, Pill } from 'lucide-react';
 import { useAuth } from './AuthContext.jsx';
+import {
+  useLocation,
+  useNavigate,
+  Navigate,
+  Link
+} from 'react-router-dom';
 
 export default function LoginPage() {
   const { connecter, estConnecte, chargement } = useAuth();
@@ -95,6 +101,15 @@ export default function LoginPage() {
               {envoiEnCours && <span className="btn-spinner" aria-hidden="true" />}
               {envoiEnCours ? 'Connexion...' : 'Se connecter'}
             </button>
+          </div>
+          <div className="login-links">
+            <span>
+              Vous n'avez pas encore de compte ?
+              {' '}
+              <Link to="/demande-acces">
+                Demander un accès
+              </Link>
+            </span>
           </div>
         </form>
       </div>

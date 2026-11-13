@@ -7,7 +7,8 @@
   "scripts": {
     "seed:base": "node seed_base.js",
     "seed:mouvements": "node seed_mouvements.js",
-    "seed:all": "node seed_base.js && node seed_mouvements.js"
+    "seed:demo": "node seed_demo.js",
+    "seed:all": "node seed_base.js && node seed_mouvements.js && node seed_demo.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

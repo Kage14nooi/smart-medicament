@@ -34,6 +34,58 @@ const loginLimiter = rateLimit({
   message: { error: 'Trop de tentatives de connexion, reessayez plus tard' },
 });
 
+const demandeAccesLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: 'Trop de demandes. Réessayez plus tard.'
+  },
+});
+
+
+router.post(
+  '/demande-acces',
+  demandeAccesLimiter,
+  async (req, res) => {
+    try {
+      const {
+        nom_utilisateur,
+        email,
+        mot_de_passe
+      } = req.body || {};
+
+      if (!nom_utilisateur || !email || !mot_de_passe) {
+        return res.status(400).json({
+          error: 'Nom, e-mail et mot de passe sont requis'
+        });
+      }
+
+      if (String(mot_de_passe).length < 8) {
+        return res.status(400).json({
+          error: 'Le mot de passe doit contenir au moins 8 caractères'
+        });
+      }
+
+      const resultat = await agentClient.creerDemandeAcces({
+        nom_utilisateur,
+        email,
+        mot_de_passe
+      });
+
+      return res.status(201).json(resultat);
+
+    } catch (err) {
+      req.log?.error({ err }, 'erreur demande acces');
+
+      return res.status(err.status || 500).json({
+        error: err.message || 'Impossible d’envoyer la demande'
+      });
+    }
+  }
+);
+
 function hashToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
@@ -61,6 +113,7 @@ async function stockerRefreshToken(idUtilisateur, refreshToken) {
     [idUtilisateur, hashToken(refreshToken), expiration]
   );
 }
+
 
 /**
  * POST /api/auth/login
